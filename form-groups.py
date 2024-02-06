@@ -1,10 +1,10 @@
+from collections import Counter
+
 from tabulate import tabulate
 import pandas as pd
 
-from pprint import pprint
 
-
-GROUP_SIZE = 5
+GROUP_SIZE = 3
 
 
 def find_tuples(n, current_tuple=(), start=1):
@@ -21,8 +21,7 @@ def find_tuples(n, current_tuple=(), start=1):
     return tuples
 
 
-df = pd.read_excel("CSC510 Project Groups (Responses).xlsx")
-# df = pd.read_csv('CSC591/791 Project Groups.csv')
+df = pd.read_excel("CSC591 Spring 2024 Project Groups (Responses).xlsx")
 
 groups = []
 partial_groups = []
@@ -48,10 +47,10 @@ for idx, row in df.iterrows():
             "Please enter the email IDs of your group members, separated by commas."
         ].split(",")
 
-        if len(members) != int(
-            row["How many group members do you have (including yourself)?"]
-        ):
-            members.append(row["What is your NCSU email ID?"])
+        #if len(members) != int(
+        #    row["How many group members do you have (including yourself)?"]
+        #):
+        #    members.append(row["What is your NCSU email ID?"])
 
         partial_groups.append(members)
 
@@ -61,6 +60,7 @@ print("=" * len("Initial statistics:"))
 print("Number of complete groups:", len(groups))
 print("Partial groups:")
 
+# Map partial group sizes to number of partial groups of that size
 partial_group_sizes = {
     size: len([x for x in partial_groups if len(x) == size])
     for size in range(1, GROUP_SIZE + 1)
@@ -73,29 +73,33 @@ print()
 # Get a list of tuples that add up to GROUP_SIZE.
 # We will use these tuples to merge partial groups together.
 tuples = find_tuples(GROUP_SIZE)
-print(tuples)
 
 # Merge partial groups together
 for t in reversed(tuples):
+    print('-----')
     print(t)
+
+    # Need to update this each iteration
     partial_group_sizes = {
         size: len([x for x in partial_groups if len(x) == size])
         for size in range(1, GROUP_SIZE + 1)
     }
+    print("partial_group_sizes =", partial_group_sizes)
+
     # Find partial groups whose size is in t
     # and merge them together to form a complete group
     groups_to_merge = {
         size: [pgroup for pgroup in partial_groups if len(pgroup) == size] for size in t
     }
 
-    print(groups_to_merge)
-
     # We can only merge the minimum number
-    # TODO: This fails for cases where there are repeated sizes (e.g., (1, 2, 2) for GROUP_SIZE = 5).
-    #    Fix this.
     cur_sizes = [partial_group_sizes[size] for size in t]
     print("cur_sizes =", cur_sizes)
-    min_size = min(cur_sizes)
+
+    max_value_count = max(Counter(cur_sizes).values())
+    print("max_value_count =", max_value_count)
+
+    min_size = int(min(cur_sizes) // max_value_count)
     print("min_size =", min_size)
 
     for _ in range(min_size):
@@ -123,38 +127,6 @@ for size in range(1, GROUP_SIZE):
     print(f"\tsize {size}:", partial_group_sizes[size])
 print()
 
-# TODO: No idea if the following code is necessary.
-
-# Find individuals for the partial groups
-no_more_indivs = False
-for pgroup in partial_groups:
-    need = GROUP_SIZE - len(pgroup)
-
-    if partial_group_sizes[1] >= need:
-        # We found individuals to add to fill the group
-        pgroup.extend(ungrouped[:need])
-        ungrouped = ungrouped[need:]
-        groups.append(pgroup)
-    else:
-        no_more_indivs = True
-        break
-
-# Get rid of the partial groups we modified
-partial_groups = [pgroup for pgroup in partial_groups if len(pgroup) < GROUP_SIZE]
-
-# If no individuals, can't do much with the partial groups now
-if no_more_indivs:
-    groups.extend(partial_groups)
-
-# If we have individuals, group them up
-if len(ungrouped) > 0:
-    extra_groups = [
-        ungrouped[i : i + GROUP_SIZE] for i in range(0, len(ungrouped), GROUP_SIZE)
-    ]
-    groups.extend(extra_groups)
-
-
-groups.sort(key=lambda p: len(p), reverse=True)
 print(tabulate(groups))
 print()
 print(len(groups), "groups created.")
@@ -172,3 +144,8 @@ for i in range(len(groups)):
 out_df = pd.DataFrame(groups, columns=[f"Member {i}" for i in range(1, GROUP_SIZE + 1)])
 out_df.to_csv("out.csv")
 print("Written to out.csv")
+
+if len(partial_groups) > 0:
+    print("WARN: There are still partial groups left.")
+    print("WARN: These partial groups are:")
+    print(tabulate(partial_groups))
